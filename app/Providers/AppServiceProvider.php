@@ -4,10 +4,13 @@ namespace App\Providers;
 
 use App\Logging\RefreshLog;
 use App\Models\User;
+use App\Refresh\LegacyRefreshHandler;
+use App\Refresh\RefreshHandler;
 use Illuminate\Database\Events\ModelsPruned;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -16,7 +19,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Resolved per job run, so the handler can be switched via config without restarting code paths
+        $this->app->bind(RefreshHandler::class, fn ($app) => match (config('refresh.handler')) {
+            'legacy' => $app->make(LegacyRefreshHandler::class),
+            default => throw new InvalidArgumentException('Unknown refresh handler ['.config('refresh.handler').']'),
+        });
     }
 
     /**

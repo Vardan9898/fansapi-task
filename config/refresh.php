@@ -14,4 +14,16 @@ return [
 
     'retention_days' => (int) env('LOG_REFRESH_DAYS', 7),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Refresh handler
+    |--------------------------------------------------------------------------
+    |
+    | legacy: the production code that caused the incident (kept to reproduce it
+    | and to run the same workload before/after the fix).
+    |
+    */
+
+    'handler' => env('REFRESH_HANDLER', 'legacy'),
+
 ];

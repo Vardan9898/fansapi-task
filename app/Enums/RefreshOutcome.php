@@ -24,4 +24,13 @@ enum RefreshOutcome: string
     {
         return in_array($this, [self::Updated, self::Duplicate], true);
     }
+
+    /**
+     * Upstream or payload problem (counts towards consecutive_failures). Stale is neither:
+     * upstream answered fine, the data was just older than what we have.
+     */
+    public function isFailure(): bool
+    {
+        return ! $this->isSuccessful() && $this !== self::Stale;
+    }
 }

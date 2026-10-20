@@ -1,0 +1,22 @@
+Profile Refresh (Tests\Feature\ProfileRefresh)
+ [ ] New format response updates likes from profile object
+ [x] Old format response is still accepted
+ [ ] Response without likes is rejected and stored value kept
+ [ ] Rate limited response keeps stored data and is not a success
+ [ ] Server error with empty body keeps stored data
+ [ ] Timeout is recorded and keeps stored data
+ [ ] Duplicate execution does not apply the same revision twice
+ [ ] Older response arriving last does not overwrite newer data
+
+
+Result: failed - 8 tests, 1 passed, 6 failed, 1 error(s)
+Handler: legacy (REFRESH_HANDLER=legacy)
+
+Failures:
+ - test_new_format_response_updates_likes_from_profile_object: Failed asserting that 0 is identical to 121000.
+ - test_response_without_likes_is_rejected_and_stored_value_kept: stored likes must not change | Failed asserting that 0 is identical to 120000.
+ - test_rate_limited_response_keeps_stored_data_and_is_not_a_success: stored likes must not change | Failed asserting that 0 is identical to 120000.
+ - test_server_error_with_empty_body_keeps_stored_data: stored likes must not change | Failed asserting that 0 is identical to 120000.
+ - test_duplicate_execution_does_not_apply_the_same_revision_twice: Failed asserting that 0 is identical to 121000.
+ - test_older_response_arriving_last_does_not_overwrite_newer_data: Failed asserting that 120000 is identical to 121000.
+ - test_timeout_is_recorded_and_keeps_stored_data: cURL error 28: Operation timed out (fake)

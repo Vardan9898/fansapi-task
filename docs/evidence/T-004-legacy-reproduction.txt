@@ -1,0 +1,14 @@
+Handler: legacy upstream: http://localhost:8000/fake-upstream
++-------------------------------------+--------------+-----------------------------+----------------------------------+--------+
+| Case (start: 120000 / r10) | Stored after | Recorded | Expected | Result |
++-------------------------------------+--------------+-----------------------------+----------------------------------+--------+
+| Old format, same data | 120000 / r10 | updated | 120000 / r10: duplicate | BUG |
+| New format profile.likes=121000 r11 | 0 / r11 | updated | 121000 / r11: updated | BUG |
+| Likes missing everywhere r12 | 0 / r12 | updated | 120000 / r10: invalid_payload | BUG |
+| 429, empty body, no Retry-After | 0 / r10 | updated | 120000 / r10: rate_limited | BUG |
+| 500, empty body | 0 / r10 | updated | 120000 / r10: server_error | BUG |
+| Timeout (no response) | 120000 / r10 | job failed: UpstreamTimeout | 120000 / r10: timeout | BUG |
+| Duplicate: r11 delivered twice | 0 / r11 | updated, updated | 121000 / r11: updated, duplicate | BUG |
+| Out of order: r11, then older r10 | 120000 / r10 | updated, updated | 121000 / r11: updated, stale | BUG |
++-------------------------------------+--------------+-----------------------------+----------------------------------+--------+
+0/8 cases correct
