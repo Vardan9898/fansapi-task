@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\RefreshOutcome;
+use App\Enums\UpstreamDriver;
 use App\Models\Profile;
 use App\Models\RefreshAttempt;
 use Database\Seeders\DatabaseSeeder;
@@ -18,11 +19,21 @@ class DomainModelTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $profile = Profile::where('username', 'madison420ivy')->sole();
+        $profile = Profile::whereRelation('account', 'name', 'default')->where('username', 'madison420ivy')->sole();
 
         $this->assertSame(120000, $profile->likes);
         $this->assertSame(10, $profile->revision);
         $this->assertSame(RefreshOutcome::Updated, $profile->last_outcome);
+    }
+
+    public function test_seeder_creates_the_real_fansapi_profile_unfetched(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $profile = Profile::whereRelation('account', 'name', 'fansapi')->where('username', 'madison420ivy')->sole();
+
+        $this->assertSame(UpstreamDriver::FansApi, $profile->account->upstream);
+        $this->assertNull($profile->likes);
     }
 
     public function test_seeder_is_rerunnable(): void
@@ -30,7 +41,7 @@ class DomainModelTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(1, Profile::count());
+        $this->assertSame(2, Profile::count()); // default (fake) + fansapi (real) madison420ivy
     }
 
     public function test_never_fetched_profile_has_null_data_not_zero(): void

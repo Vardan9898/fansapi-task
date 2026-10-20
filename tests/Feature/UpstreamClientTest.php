@@ -40,7 +40,7 @@ class UpstreamClientTest extends TestCase
 
     public function test_fansapi_driver_uses_bearer_token_and_profile_endpoint(): void
     {
-        config(['upstream.drivers.fansapi.token' => 'test-key-123']);
+        config(['upstream.drivers.fansapi.token' => 'test-key-123', 'upstream.drivers.fansapi.base_url' => 'https://app.onlyfansapi.com/api']);
         Http::fake(['*' => Http::response('{"data":{"username":"madison420ivy"}}', 200)]);
         $profile = Profile::factory()
             ->for(Account::factory()->fansApi()->create())

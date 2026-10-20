@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\RefreshOutcome;
+use App\Enums\UpstreamDriver;
 use App\Models\Account;
 use App\Models\Profile;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -13,7 +14,8 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Starting state from the brief: last valid refresh stored likes=120000 at revision 10.
+     * "default" (fake upstream): the brief's starting state, likes=120000 at revision 10.
+     * "fansapi" (real FansAPI, needs FANSAPI_KEY): madison420ivy, never fetched yet.
      */
     public function run(): void
     {
@@ -29,5 +31,8 @@ class DatabaseSeeder extends Seeder
                 'last_outcome' => RefreshOutcome::Updated,
             ],
         );
+
+        $real = Account::firstOrCreate(['name' => 'fansapi'], ['upstream' => UpstreamDriver::FansApi]);
+        Profile::firstOrCreate(['account_id' => $real->id, 'username' => 'madison420ivy']);
     }
 }

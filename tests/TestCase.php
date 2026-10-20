@@ -27,6 +27,9 @@ abstract class TestCase extends BaseTestCase
             'logging.channels.refresh.handler' => NullHandler::class,
         ]);
 
+        // No test may reach a real upstream (FansAPI calls cost credits): unfaked HTTP calls throw
+        Http::preventStrayRequests();
+
         // Cooldowns, slots and fake scenarios must not leak between tests. phpunit.xml points
         // tests at Redis DB 15; refuse to flush anything else.
         if ((string) config('database.redis.default.database') === '15') {

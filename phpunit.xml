@@ -28,6 +28,8 @@
         <env name="DB_URL" value=""/>
         <env name="REDIS_DB" value="15"/>
         <env name="REFRESH_HANDLER" value="fixed"/>
+        <env name="FANSAPI_KEY" value=""/>
+        <env name="FANSAPI_BASE_URL" value="http://fansapi.invalid/api"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

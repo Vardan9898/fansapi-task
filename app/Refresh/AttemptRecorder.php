@@ -88,10 +88,20 @@ class AttemptRecorder
 
         foreach (array_diff(Profile::DATA_COLUMNS, ['last_success_at']) as $column) {
             if (($before[$column] ?? null) !== $profile->{$column}) {
-                $changes[$column] = [$before[$column] ?? null, $profile->{$column}];
+                $changes[$column] = [self::summarize($before[$column] ?? null), self::summarize($profile->{$column})];
             }
         }
 
         return $changes;
+    }
+
+    /**
+     * Long text (e.g. a profile bio) is summarized so attempt rows and log lines stay small.
+     */
+    private static function summarize(mixed $value): mixed
+    {
+        return is_string($value) && mb_strlen($value) > 120
+            ? '<text, '.mb_strlen($value).' chars>'
+            : $value;
     }
 }

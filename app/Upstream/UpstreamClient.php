@@ -78,6 +78,7 @@ class UpstreamClient
             durationMs: $this->elapsedMs($startedAt),
             retryAfter: $response->header('Retry-After') ?: null,
             truncated: $truncated,
+            date: $response->header('Date') ?: null,
         ), $driver->value);
     }
 
@@ -90,9 +91,30 @@ class UpstreamClient
             'body_bytes' => $response->bodyBytes(),
             'truncated' => $response->truncated,
             'retry_after' => $response->retryAfter,
+            ...$this->fansApiMeta($response),
         ]);
 
         return $response;
+    }
+
+    /**
+     * FansAPI reports cache status, credits and its rate limit in `_meta`: worth having in every log line.
+     */
+    private function fansApiMeta(UpstreamResponse $response): array
+    {
+        $meta = $response->json()['_meta'] ?? null;
+
+        if (! is_array($meta)) {
+            return [];
+        }
+
+        return [
+            'cache_hit' => $meta['_cache']['is_cached'] ?? null,
+            'cached_at' => $meta['_cache']['cached_at'] ?? null,
+            'credits_used' => $meta['_credits']['used'] ?? null,
+            'credits_balance' => $meta['_credits']['balance'] ?? null,
+            'rate_limit_remaining_minute' => $meta['_rate_limits']['remaining_minute'] ?? null,
+        ];
     }
 
     private function causedBy(Throwable $e, string $class): bool

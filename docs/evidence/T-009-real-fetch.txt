@@ -1,0 +1,27 @@
+# T-009 real fetch: onlyfans.com/madison420ivy via FansAPI (GET https://app.onlyfansapi.com/api/profiles/madison420ivy)
+
+Command (run twice): php artisan profiles:refresh fansapi madison420ivy --sync   (job -> FixedRefreshHandler -> UpstreamClient -> MySQL)
+
+Stored profile (bio not reproduced here; 1011 chars stored):
+{
+    "upstream_id": 5140520,
+    "username": "madison420ivy",
+    "name": "Madison Ivy",
+    "likes": 609771,
+    "posts_count": 176,
+    "photos_count": 621,
+    "videos_count": 201,
+    "audios_count": 0,
+    "revision": 1792483441000
+}
+avatar_url: https://public.onlyfans.com/files/v/v3/v30/v302xscgzgb1qijezrvsotwo4dxn00pe1760573833/5140520/avatar.jpg
+header_url: https://public.onlyfans.com/files/i/iz/izt/iztyiyvqu9mg54vccnxjjivnkz2cyivm1617484103/header.jpg
+revision 1792483441000 = 2026-10-20T08:04:01+00:00 (FansAPI _meta._cache.cached_at, in ms)
+
+Attempts:
+  #703 updated http=200 225ms format=fansapi changes={"name":[null,"Madison Ivy"],"about":[null,"<text, 1011 chars>"],"likes":[null,609771],"revision":[null,1792483441000],"avatar_url":[null,"https://public.onlyfans.com/files/v/v3/v30/v302xscgzgb1qijezrvsotwo4dxn00pe1760573833/5140520/avatar.jpg"],"header_url":[null,"https://public.onlyfans.com/files/i/iz/izt/iztyiyvqu9mg54vccnxjjivnkz2cyivm1617484103/header.jpg"],"posts_count":[null,176],"upstream_id":[null,5140520],"audios_count":[null,0],"photos_count":[null,621],"videos_count":[null,201]}
+  #704 duplicate http=200 633ms format=fansapi changes=null
+
+Second run = duplicate: same cached_at, nothing rewritten. Both calls were FansAPI cache hits (credits_used: 0).
+  log: upstream.response {"driver":"fansapi","status":200,"duration_ms":225,"body_bytes":4524,"truncated":false,"retry_after":null,"cache_hit":true,"cached_at":"2026-10-20T08:04:01+00:00","credits_used":0,"credits_balance":100,"rate_limit_remaining_minute":59}
+  log: upstream.response {"driver":"fansapi","status":200,"duration_ms":633,"body_bytes":4524,"truncated":false,"retry_after":null,"cache_hit":true,"cached_at":"2026-10-20T08:04:01+00:00","credits_used":0,"credits_balance":100,"rate_limit_remaining_minute":58}

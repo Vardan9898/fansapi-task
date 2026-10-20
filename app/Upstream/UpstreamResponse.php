@@ -15,6 +15,7 @@ final readonly class UpstreamResponse
         public int $durationMs,
         public ?string $retryAfter = null,
         public bool $truncated = false, // body exceeded max_body_bytes: download aborted, body discarded
+        public ?string $date = null,   // upstream server clock (HTTP Date header)
     ) {}
 
     /**
