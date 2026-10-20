@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AccountStatus;
+use App\Enums\UpstreamDriver;
 use App\Logging\RefreshLog;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -12,19 +13,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'status', 'blocked_at', 'blocked_reason'])]
+#[Fillable(['name', 'upstream', 'status', 'blocked_at', 'blocked_reason'])]
 class Account extends Model
 {
     /** @use HasFactory<AccountFactory> */
     use HasFactory;
 
     protected $attributes = [
+        'upstream' => 'fake',
         'status' => 'active',
     ];
 
     protected function casts(): array
     {
         return [
+            'upstream' => UpstreamDriver::class,
             'status' => AccountStatus::class,
             'blocked_at' => 'datetime',
         ];
