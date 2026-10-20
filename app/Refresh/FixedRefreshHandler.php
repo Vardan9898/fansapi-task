@@ -86,7 +86,7 @@ class FixedRefreshHandler implements RefreshHandler
      */
     private function write(Profile $profile, ParsedProfile $parsed): array
     {
-        $current = Profile::with('account')->lockForUpdate()->findOrFail($profile->id);
+        $current = Profile::lockForUpdate()->findOrFail($profile->id);
         $before = $current->only(Profile::DATA_COLUMNS);
 
         if ($current->revision !== null && $parsed->revision < $current->revision) {

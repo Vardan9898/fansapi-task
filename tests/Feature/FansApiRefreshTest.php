@@ -11,6 +11,7 @@ use App\Upstream\UpstreamResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -64,6 +65,13 @@ class FansApiRefreshTest extends TestCase
         $this->assertSame(5140520, $profile->upstream_id);
         $this->assertSame('Madison Ivy', $profile->name);
         $this->assertSame([176, 621, 201, 0], [$profile->posts_count, $profile->photos_count, $profile->videos_count, $profile->audios_count]);
+        $this->assertSame(822, $profile->medias_count);
+        $this->assertTrue($profile->is_verified);
+        $this->assertSame('2018-11-11', $profile->join_date->toDateString());
+        $this->assertNotNull($profile->subscribe_price);
+        // full profile object kept as JSON (88 fields), bio replaced in the fixture
+        $this->assertCount(88, $profile->upstream_payload);
+        $this->assertSame(609771, $profile->upstream_payload['favoritedCount']);
         $this->assertStringStartsWith('https://public.onlyfans.com/', $profile->avatar_url);
         $this->assertStringStartsWith('https://public.onlyfans.com/', $profile->header_url);
         $this->assertSame(Carbon::parse('2026-10-20T08:04:01+00:00')->getTimestampMs(), $profile->revision);
@@ -71,6 +79,30 @@ class FansApiRefreshTest extends TestCase
         $this->assertSame('fansapi', $profile->refreshAttempts()->sole()->response_format);
         Http::assertSent(fn (Request $request) => $request->url() === 'http://fansapi.invalid/api/profiles/madison420ivy'
             && $request->header('Authorization') === ['Bearer test-key']);
+    }
+
+    public function test_payload_is_not_copied_into_the_diff_and_dates_compare_by_value(): void
+    {
+        $this->fansApiReturns();
+
+        $changes = $this->refresh()->refreshAttempts()->sole()->changes;
+
+        $this->assertArrayNotHasKey('upstream_payload', $changes);
+        $this->assertSame([null, '2018-11-11T00:00:00+00:00'], $changes['join_date']);
+        $this->assertSame([null, true], $changes['is_verified']);
+    }
+
+    public function test_account_own_api_key_is_used_and_stored_encrypted(): void
+    {
+        $this->profile->account->update(['api_key' => 'account-key-1']);
+        $this->fansApiReturns();
+
+        $this->refresh();
+
+        Http::assertSent(fn (Request $request) => $request->header('Authorization') === ['Bearer account-key-1']);
+        $raw = DB::table('accounts')->where('id', $this->profile->account_id)->value('api_key');
+        $this->assertNotSame('account-key-1', $raw);
+        $this->assertArrayNotHasKey('api_key', $this->profile->account->fresh()->toArray());
     }
 
     public function test_same_cached_copy_twice_is_a_duplicate(): void

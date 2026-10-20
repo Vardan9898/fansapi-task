@@ -34,7 +34,8 @@ class UpstreamClient
         try {
             // curl handler: `timeout` is a hard limit for the whole request, `connect_timeout` for the TCP/TLS handshake
             $response = Http::acceptJson()
-                ->when($config['token'], fn ($request, $token) => $request->withToken($token))
+                // The account's own credential (its rate limit, its 401); the configured key is the fallback
+                ->when($profile->account->api_key ?: $config['token'], fn ($request, $token) => $request->withToken($token))
                 ->timeout(config('upstream.timeout'))
                 ->connectTimeout(config('upstream.connect_timeout'))
                 ->withOptions([

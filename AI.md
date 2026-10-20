@@ -4,10 +4,12 @@
 
 - **Claude Code** (Anthropic, desktop app) as a pair programmer: it wrote most of the code, tests and docs, ran commands, and drove a
   built-in browser (to read the brief, check the dashboard and the log viewer).
-- How I worked with it: the work was split into 11 tasks. After each one I read the full diff (with a walkthrough of
+- How I worked with it: the work was split into 12 tasks (the last one: fixes from the independent audit). After each one I read the full diff (with a walkthrough of
   likely interview questions), asked questions, requested changes, and **committed manually** (the AI never committed or pushed).
   Design decisions were mine: e.g. MySQL instead of SQLite, the log viewer with retention, blocking and moving accounts in the UI,
   "store explicit 0 but flag a suspicious drop", and using the real API instead of scraping.
+- **An independent audit agent** (a separate Claude instance with no knowledge of our discussion) got only the original
+  brief and the repository, and checked every requirement against the code, config and evidence. Its findings are in the list below.
 - Plain tooling: PHPUnit, Laravel Pint, Horizon, curl, MySQL/Redis CLIs.
 
 ## What was checked (not taken on trust)
@@ -39,7 +41,19 @@
 8. **Overlapping jobs were dropped silently** (Laravel's `dontRelease`): made visible with a log line and a per-account counter.
 9. **"Auto-block the account on 401/403"** (initial plan): a 403 usually means one restricted profile, not bad credentials. Only 401 blocks.
 10. **XSS in the dashboard**: an account name was put into an inline `confirm()` with `{{ }}` (HTML-escaped, not JS-escaped). Switched to `@js()`.
-11. Smaller ones: a test closure captured by value (arrow function), so an assertion silently checked `null`; test helpers clashing with framework
+11. **Found by the independent audit**, all fixed:
+    - **Isolation granularity didn't match the real upstream**: FansAPI rate-limits per API key, but one key was shared by
+      every account while cooldowns and blocking were per account. Each account now owns its key (encrypted).
+    - **"Full profile" was thin**: about 10 of 88 fields were stored. The full validated profile object is now kept as JSON, plus more typed columns.
+    - **Moving a profile between a fake and a FansAPI account** would compare incomparable revisions. It's now refused.
+    - **The failure counter could lose updates** under concurrency (computed in PHP). It's now an atomic SQL increment, sabotage-checked.
+    - **Doc numbers that didn't match the code**: backoff ranges (jitter makes them 1–2 s, 2–4 s, …), queries per refresh (now
+      measured: 6), the red-test command (phpunit.xml pins the fixed handler, so the env var is needed), a reference to a gitignored file,
+      and the busy account's worse wait time left out of the README table.
+12. **Two queue bugs found by re-running the workload after the audit fixes:** concurrent 429s escalated the cooldown several times
+    (one run recovered 104 s after the limit cleared), and bursts of short jobs were re-queued for seconds instead of waiting
+    milliseconds for a slot. Both fixed and tested; see [the workload summary](docs/evidence/T-008-workload-summary.md#two-queue-bugs-found-by-re-measuring-fixed).
+13. Smaller ones: a test closure captured by value (arrow function), so an assertion silently checked `null`; test helpers clashing with framework
     methods (`call()`, `run()`, `$output`); a pagination view (`simple-default`) that doesn't exist in Laravel 13; a full bio copied into
     every attempt diff (now summarized); explicit adult text kept out of the committed fixture.
 

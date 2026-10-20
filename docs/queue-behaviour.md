@@ -5,20 +5,31 @@
 | Outcome | Action | Limit |
 |---|---|---|
 | `updated` / `duplicate` / `stale` | done | n/a |
-| `rate_limited` (429) | account cooldown starts (`Retry-After` if sent, else randomized exponential: `base·2^(streak-1)`, equal jitter, max 300s); job re-queued for when it ends | `retry_window_minutes` (30), then the job fails |
-| `server_error` (5xx), `timeout` | re-queued with exponential backoff + jitter (2s, 4s, 8s… max 60s) | `max_retries` (4) upstream failures per job, counted from `refresh_attempts` |
+| `rate_limited` (429) | account cooldown starts (`Retry-After` if sent, else randomized exponential: `base·2^(streak-1)` with equal jitter, i.e. 3–5s, 5–10s, 10–20s… max 300s); job re-queued for when it ends | `retry_window_minutes` (30), then the job fails |
+| `server_error` (5xx), `timeout` (no response: timeout, DNS, connection refused) | re-queued with exponential backoff + equal jitter (1–2s, 2–4s, 4–8s… max 60s) | `max_retries` (4) upstream failures per job, counted from `refresh_attempts` |
 | `failed` (401/403/404) | job fails, no retry. **401 also blocks the account** (bad credentials: every profile would fail) | n/a |
 | `invalid_payload` | job fails, no retry (needs a human: likely another format change) | n/a |
 
 5xx and timeouts are counted from the job's own recorded attempts, not `attempts()`: re-queues for
 cooldowns also bump `attempts()`, and must not eat the retry budget.
 
+**The 429 streak counts failed probe rounds, not individual 429s.** With 2 slots, one probe after a cooldown
+produces two 429s at once. If each escalated, the cooldown would double twice per round. In one measured run
+the busy account recovered 104s after its limit cleared instead of ~4s. `AccountThrottle::rateLimited()` uses
+Redis `SET NX` on the cooldown key: the worker that wins starts the cooldown and escalates the streak, the
+others join the running cooldown (extending it only for a longer `Retry-After`).
+
 ## Account isolation (`AccountIsolation` job middleware, before any upstream call)
 
 1. **Blocked account**: the job is dropped (it can't succeed until the profile is moved).
 2. **Account cooling down**: the job is re-queued for the end of the cooldown **without calling upstream**.
-3. **Concurrency slots**: at most `account_concurrency` (2) workers per account (`Redis::funnel`). Extra jobs
-   are re-queued in 1–3s.
+3. **Concurrency slots**: at most `account_concurrency` (2) workers per account (`Redis::funnel`). A job waits up to
+   `slot_wait_ms` (500 ms) for a free slot, then is re-queued in 1–2s. The short wait matters for bursts of short jobs:
+   without it, 3 of every 5 healthy jobs arriving together were re-queued for 1–3s even though a slot freed within
+   ~50 ms (measured: the healthy account's oldest waiting job went from 8–14s to 3s).
+
+An account is **one upstream credential** (`accounts.api_key`, encrypted; `FANSAPI_KEY` as fallback): rate limits and
+401s belong to a key, so throttling and blocking per account means per key.
 
 Re-queued jobs sit in Redis' delayed set and hold no worker, so a bursting or rate-limited account can't
 occupy all workers, and other accounts' jobs keep flowing. Evidence: [`evidence/T-006-horizon-smoke.txt`](evidence/T-006-horizon-smoke.txt).

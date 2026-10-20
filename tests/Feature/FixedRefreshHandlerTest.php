@@ -6,6 +6,8 @@ use App\Enums\RefreshOutcome;
 use App\Jobs\RefreshProfile;
 use App\Models\Account;
 use App\Models\Profile;
+use App\Refresh\AttemptContext;
+use App\Refresh\AttemptRecorder;
 use App\Upstream\Fake\FakeUpstream;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -89,6 +91,29 @@ class FixedRefreshHandlerTest extends TestCase
         $profile = $this->refreshWith($profile, ['type' => 'new_format', 'likes' => 121000, 'revision' => 11]);
         $this->assertSame(0, $profile->consecutive_failures);
         $this->assertNull($profile->last_error);
+    }
+
+    public function test_failure_counter_is_incremented_atomically(): void
+    {
+        $profile = $this->profile();
+        $staleCopy = Profile::find($profile->id); // another worker's in-memory copy (counter 0)
+        $recorder = app(AttemptRecorder::class);
+        $context = new AttemptContext(null);
+
+        $recorder->record($profile, 'fixed', RefreshOutcome::ServerError, $context);
+        $recorder->record($staleCopy, 'fixed', RefreshOutcome::Timeout, $context);
+
+        $this->assertSame(2, $profile->fresh()->consecutive_failures); // not 1: the second write did not overwrite the first
+    }
+
+    public function test_finished_log_line_reports_peak_memory(): void
+    {
+        $log = $this->captureRefreshLog();
+
+        $this->refreshWith($this->profile(), ['type' => 'new_format', 'likes' => 121000, 'revision' => 11]);
+
+        $finished = collect($log->getRecords())->first(fn ($r) => $r->message === 'refresh.finished');
+        $this->assertGreaterThan(0, $finished->context['peak_memory_mb']);
     }
 
     public function test_stale_response_does_not_count_as_failure(): void

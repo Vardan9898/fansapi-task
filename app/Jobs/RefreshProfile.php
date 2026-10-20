@@ -93,7 +93,11 @@ class RefreshProfile implements ShouldQueue
 
             $outcome = $handler->refresh($profile, $context);
 
-            RefreshLog::info('refresh.finished', ['handler' => $handler->name(), 'outcome' => $outcome->value]);
+            RefreshLog::info('refresh.finished', [
+                'handler' => $handler->name(),
+                'outcome' => $outcome->value,
+                'peak_memory_mb' => round(memory_get_peak_usage(true) / 1_048_576, 1), // this worker process so far
+            ]);
 
             $this->simulateCrashAfterWrite($outcome);
 

@@ -32,6 +32,10 @@ class ProfilePayloadParser
         'photos_count' => ['photosCount', 'int'],
         'videos_count' => ['videosCount', 'int'],
         'audios_count' => ['audiosCount', 'int'],
+        'medias_count' => ['mediasCount', 'int'],
+        'is_verified' => ['isVerified', 'bool'],
+        'subscribe_price' => ['subscribePrice', 'number'],
+        'join_date' => ['joinDate', 'datetime'],
     ];
 
     public function parse(UpstreamResponse $response): ParsedProfile
@@ -108,14 +112,21 @@ class ProfilePayloadParser
 
             $valid = match ($type) {
                 'int' => is_int($value) && $value >= 0,
+                'bool' => is_bool($value),
+                'number' => (is_int($value) || is_float($value)) && $value >= 0 && $value < 1_000_000,
                 'string' => is_string($value) && mb_strlen($value) <= 10_000,
                 'url' => is_string($value) && strlen($value) <= 1024 && str_starts_with($value, 'https://'),
+                'datetime' => $this->timestampMs($value) !== null,
             };
 
             if ($valid) {
-                $details[$column] = $value;
+                $details[$column] = $type === 'datetime' ? CarbonImmutable::parse($value) : $value;
             }
         }
+
+        // "Full profile information": the whole validated profile object is kept as JSON (bounded by the
+        // 1 MB body cap); the columns above are the typed, queryable subset.
+        $details['upstream_payload'] = $profile;
 
         return new ParsedProfile($likes, $revision, 'fansapi', $details);
     }

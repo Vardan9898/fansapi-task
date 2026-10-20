@@ -43,6 +43,8 @@ return [
     |   a bursting account can never take more than this many workers.
     | slot_ttl_seconds: a concurrency slot held by a worker that died is freed
     |   after this (must be >= the job timeout, RefreshProfile::TIMEOUT).
+    | slot_wait_ms: a job waits this long for a free slot (short jobs free one in
+    |   milliseconds) before it is re-queued for 1-2s.
     | cooldown: after a 429 without Retry-After, the account pauses for a
     |   randomized, exponentially growing time (base * 2^(streak-1), max).
     | backoff / max_retries: 5xx and timeouts retry with exponential backoff and
@@ -54,6 +56,9 @@ return [
     'account_concurrency' => (int) env('REFRESH_ACCOUNT_CONCURRENCY', 2),
 
     'slot_ttl_seconds' => (int) env('REFRESH_SLOT_TTL', 30),
+
+    // How long a job waits for a free slot of its account before being re-queued (bounded worker time)
+    'slot_wait_ms' => (int) env('REFRESH_SLOT_WAIT_MS', 500),
 
     'cooldown' => [
         'base_seconds' => (int) env('REFRESH_COOLDOWN_BASE', 5),

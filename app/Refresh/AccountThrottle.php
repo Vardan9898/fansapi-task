@@ -22,33 +22,44 @@ class AccountThrottle
     }
 
     /**
-     * Start (or extend) the account cooldown after a 429. Honors Retry-After when upstream sends it;
-     * otherwise waits a randomized, exponentially growing time based on the account's 429 streak.
+     * Start the account cooldown after a 429. Honors Retry-After when upstream sends it; otherwise waits a
+     * randomized, exponentially growing time: base * 2^(streak-1), "equal jitter" (between half and full).
+     *
+     * The streak counts failed probe ROUNDS, not individual 429s: concurrent workers of one account hitting
+     * the same rate limit must not escalate it several times. Redis SET NX elects one of them to start the
+     * cooldown; the others only extend it if upstream sent a longer Retry-After.
      *
      * @return int cooldown seconds now in effect
      */
     public function rateLimited(Account $account, ?string $retryAfter): int
     {
-        $streakKey = $this->key($account, '429_streak');
-        $streak = (int) Redis::incr($streakKey);
-        Redis::expire($streakKey, 600);
-
         $max = config('refresh.cooldown.max_seconds');
         $fromHeader = $this->parseRetryAfter($retryAfter);
+        $streakKey = $this->key($account, '429_streak');
+        $cooldownKey = $this->key($account, 'cooldown');
+
+        $streak = (int) Redis::get($streakKey) + 1;
 
         if ($fromHeader !== null) {
             $seconds = min($fromHeader, $max);
         } else {
             $ceiling = min($max, config('refresh.cooldown.base_seconds') * 2 ** min($streak - 1, 16));
-            $seconds = random_int(intdiv($ceiling + 1, 2), $ceiling); // "equal jitter": spreads retries out
+            $seconds = random_int(intdiv($ceiling + 1, 2), $ceiling);
         }
 
         $seconds = max(1, $seconds);
 
-        // Never shorten a cooldown another worker already started
-        if ($seconds > $this->cooldownRemaining($account)) {
-            Redis::setex($this->key($account, 'cooldown'), $seconds, 1);
+        if (! Redis::set($cooldownKey, 1, 'EX', $seconds, 'NX')) {
+            // Same wave: a cooldown is already running. Never shorten it; extend only for a longer Retry-After.
+            if ($fromHeader !== null && $seconds > $this->cooldownRemaining($account)) {
+                Redis::setex($cooldownKey, $seconds, 1);
+            }
+
+            return $this->cooldownRemaining($account);
         }
+
+        Redis::incr($streakKey);
+        Redis::expire($streakKey, 600);
 
         RefreshLog::warning('account.cooldown_started', [
             'account_id' => $account->id,
@@ -71,12 +82,28 @@ class AccountThrottle
     }
 
     /**
-     * Run $callback only if one of the account's concurrency slots is free. Never waits.
+     * Run $callback once one of the account's concurrency slots is free, waiting at most
+     * refresh.slot_wait_ms (short jobs free a slot within milliseconds; re-queueing would cost seconds).
      * The slot is released when the callback ends (or after slot_ttl_seconds if the worker died).
      *
-     * @return bool false when all slots are busy (callback not run)
+     * @return bool false when no slot freed up in time (callback not run)
      */
     public function withSlot(Account $account, callable $callback): bool
+    {
+        $deadline = microtime(true) + config('refresh.slot_wait_ms') / 1000;
+
+        do {
+            if ($this->tryWithSlot($account, $callback)) {
+                return true;
+            }
+
+            usleep(50_000);
+        } while (microtime(true) < $deadline);
+
+        return false;
+    }
+
+    private function tryWithSlot(Account $account, callable $callback): bool
     {
         $ran = false;
 

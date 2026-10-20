@@ -35,6 +35,6 @@ Failing tests for the correct behaviour: [`T-004-red-expected-behaviour.txt`](T-
 ```bash
 php artisan serve                                  # fake upstream lives at /fake-upstream
 php artisan incident:reproduce --handler=legacy    # table above
-vendor/bin/phpunit --filter=ProfileRefreshTest     # expected behaviour, red on legacy
+REFRESH_HANDLER=legacy php artisan test --filter=ProfileRefreshTest   # expected behaviour: red on legacy (phpunit.xml defaults to fixed)
 vendor/bin/phpunit --filter=LegacyRefreshHandlerTest   # records the legacy behaviour (green)
 ```

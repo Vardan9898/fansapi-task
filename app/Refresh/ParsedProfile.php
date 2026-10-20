@@ -9,7 +9,7 @@ final readonly class ParsedProfile
 {
     /**
      * @param  string  $format  which response shape it came from: "top_level", "nested" or "fansapi"
-     * @param  array<string, int|string>  $details  optional profile columns that passed validation (name, counts, ...)
+     * @param  array<string, mixed>  $details  optional profile columns that passed validation (name, counts, payload, ...)
      */
     public function __construct(
         public int $likes,

@@ -29,6 +29,11 @@ class MoveProfiles
             throw new InvalidArgumentException("Target account [{$to->name}] is blocked.");
         }
 
+        if ($from->upstream !== $to->upstream) {
+            // Revisions are only comparable within one upstream (fake: integers, FansAPI: data timestamps)
+            throw new InvalidArgumentException("Cannot move profiles from a {$from->upstream->value} account to a {$to->upstream->value} account: their data versions are not comparable.");
+        }
+
         $result = ['moved' => 0, 'merged' => 0];
 
         DB::transaction(function () use ($from, $to, $profileIds, &$result) {

@@ -7,13 +7,19 @@ use App\Enums\UpstreamDriver;
 use App\Logging\RefreshLog;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'upstream', 'status', 'blocked_at', 'blocked_reason'])]
+/**
+ * One upstream credential (its own API key, rate limit and possible 401) and the profiles refreshed through it.
+ * Cooldowns, concurrency slots and blocking are per account, i.e. per credential.
+ */
+#[Fillable(['name', 'upstream', 'api_key', 'status', 'blocked_at', 'blocked_reason'])]
+#[Hidden(['api_key'])]
 class Account extends Model
 {
     /** @use HasFactory<AccountFactory> */
@@ -28,6 +34,7 @@ class Account extends Model
     {
         return [
             'upstream' => UpstreamDriver::class,
+            'api_key' => 'encrypted', // at rest with APP_KEY; never serialized (Hidden)
             'status' => AccountStatus::class,
             'blocked_at' => 'datetime',
         ];

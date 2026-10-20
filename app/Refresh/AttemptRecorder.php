@@ -7,6 +7,7 @@ use App\Logging\RefreshLog;
 use App\Models\Profile;
 use App\Models\RefreshAttempt;
 use App\Upstream\UpstreamResponse;
+use DateTimeInterface;
 use Illuminate\Support\Str;
 
 /**
@@ -45,17 +46,19 @@ class AttemptRecorder
             'error' => $error,
         ]);
 
-        $profile->update([
+        $health = [
             'last_attempt_at' => now(),
             'last_outcome' => $outcome,
             'last_error' => $outcome->isSuccessful() ? null : ($error ?? $outcome->value),
-            'consecutive_failures' => match (true) {
-                $outcome->isSuccessful() => 0,
-                $outcome->isFailure() => $profile->consecutive_failures + 1,
-                default => $profile->consecutive_failures, // stale: upstream fine, data just older
-            },
             ...($outcome->isSuccessful() ? ['last_success_at' => now()] : []),
-        ]);
+        ];
+
+        match (true) {
+            $outcome->isSuccessful() => $profile->update([...$health, 'consecutive_failures' => 0]),
+            // Atomic "+ 1" in SQL: two workers failing at once can't lose an increment
+            $outcome->isFailure() => $profile->increment('consecutive_failures', 1, $health),
+            default => $profile->update($health), // stale: upstream fine, data just older; counter unchanged
+        };
 
         $level = match (true) {
             $outcome->isSuccessful() => 'info',
@@ -86,13 +89,25 @@ class AttemptRecorder
     {
         $changes = [];
 
-        foreach (array_diff(Profile::DATA_COLUMNS, ['last_success_at']) as $column) {
-            if (($before[$column] ?? null) !== $profile->{$column}) {
-                $changes[$column] = [self::summarize($before[$column] ?? null), self::summarize($profile->{$column})];
+        // upstream_payload is the whole profile object: too big for a diff; its typed columns are diffed instead
+        foreach (array_diff(Profile::DATA_COLUMNS, ['last_success_at', 'upstream_payload']) as $column) {
+            $old = self::normalize($before[$column] ?? null);
+            $new = self::normalize($profile->{$column});
+
+            if ($old !== $new) {
+                $changes[$column] = [self::summarize($old), self::summarize($new)];
             }
         }
 
         return $changes;
+    }
+
+    /**
+     * Dates are compared by value, not by object identity.
+     */
+    private static function normalize(mixed $value): mixed
+    {
+        return $value instanceof DateTimeInterface ? $value->format(DATE_ATOM) : $value;
     }
 
     /**

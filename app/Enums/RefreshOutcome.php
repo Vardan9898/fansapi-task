@@ -14,7 +14,7 @@ enum RefreshOutcome: string
     case InvalidPayload = 'invalid_payload'; // response didn't pass validation, nothing written
     case RateLimited = 'rate_limited';       // HTTP 429
     case ServerError = 'server_error';       // HTTP 5xx
-    case Timeout = 'timeout';                // connect/read timeout
+    case Timeout = 'timeout';                // no response at all: connect/read timeout or connection failure (DNS, refused)
     case Failed = 'failed';                  // permanent failure (e.g. 404), not retried
 
     /**

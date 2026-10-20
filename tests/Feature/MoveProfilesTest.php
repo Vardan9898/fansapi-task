@@ -106,6 +106,22 @@ class MoveProfilesTest extends TestCase
         $this->assertSame(120000, $target->fresh()->likes);
     }
 
+    public function test_refuses_moving_between_different_upstreams(): void
+    {
+        $fake = Account::factory()->create();
+        $real = Account::factory()->fansApi()->create();
+        $profile = Profile::factory()->for($fake)->refreshed(likes: 120000, revision: 10)->create();
+
+        try {
+            app(MoveProfiles::class)->handle($fake, $real);
+            $this->fail('Cross-upstream move should be refused');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('not comparable', $e->getMessage());
+        }
+
+        $this->assertSame($fake->id, $profile->fresh()->account_id);
+    }
+
     public function test_refuses_blocked_target_and_same_account(): void
     {
         $account = Account::factory()->create();

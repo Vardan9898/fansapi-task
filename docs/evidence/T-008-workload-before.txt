@@ -1,13 +1,13 @@
 === Workload report: handler=legacy ===
 busy (wl-busy): 20 profiles x 3 rounds = 60 jobs at t=0; upstream 1000ms/response, 429 (no Retry-After) for the first 15s
 healthy (wl-healthy): 5 profiles every 1s for 20s = 100 jobs; upstream 50ms/response
-Horizon refresh workers: 6, account_concurrency: n/a (no isolation), run: 21.1s (queue drained), failed jobs: 0
+Horizon refresh workers: 6, account_concurrency: n/a (no isolation), run: 21.0s (queue drained), failed jobs: 0
 
 +------------+------+-------------------+------------------------------+-----------------------+------------------+----------------------+--------------+-----------------------+-------------+
 | Account    | Jobs | Upstream attempts | Skipped (already refreshing) | Successful (recorded) | Attempts/success | Oldest waiting (max) | Successes at | Stored data           | Outcomes    |
 +------------+------+-------------------+------------------------------+-----------------------+------------------+----------------------+--------------+-----------------------+-------------+
-| wl-busy    | 60   | 60                | 0                            | 60                    | 1.00             | 13s                  | 4s..15s      | 0/20 valid, 20 zeroed | updated:60  |
-| wl-healthy | 100  | 100               | 0                            | 100                   | 1.00             | 13s                  | 14s..21s     | 0/5 valid, 5 zeroed   | updated:100 |
+| wl-busy    | 60   | 60                | 0                            | 60                    | 1.00             | 13s                  | 4s..14s      | 0/20 valid, 20 zeroed | updated:60  |
+| wl-healthy | 100  | 100               | 0                            | 100                   | 1.00             | 13s                  | 13s..21s     | 0/5 valid, 5 zeroed   | updated:100 |
 +------------+------+-------------------+------------------------------+-----------------------+------------------+----------------------+--------------+-----------------------+-------------+
 Stored data check: valid = likes == 100000 + revision (what the fake upstream served) and refreshed at least once.
 
@@ -17,12 +17,12 @@ Timeline (queue sampled every second; oldest = age since first dispatch, ready +
 +-----+-------+---------+---------+-------------+----------------+
 | 0s  | 65    | 0       | 0       | 0s          | 0s             |
 | 2s  | 75    | 0       | 0       | 2s          | 2s             |
-| 4s  | 74    | 0       | 6       | 4s          | 4s             |
-| 6s  | 72    | 0       | 6       | 6s          | 6s             |
-| 8s  | 70    | 0       | 6       | 8s          | 8s             |
-| 10s | 75    | 0       | 6       | 10s         | 10s            |
-| 12s | 74    | 0       | 6       | 12s         | 12s            |
-| 14s | 42    | 0       | 6       | -           | 8s             |
+| 4s  | 73    | 0       | 6       | 4s          | 4s             |
+| 6s  | 78    | 0       | 6       | 6s          | 6s             |
+| 8s  | 76    | 0       | 6       | 8s          | 8s             |
+| 10s | 74    | 0       | 6       | 10s         | 10s            |
+| 12s | 72    | 0       | 6       | 12s         | 12s            |
+| 14s | 41    | 0       | 3       | -           | 8s             |
 | 16s | 10    | 0       | 0       | -           | 1s             |
 | 18s | 5     | 0       | 0       | -           | 0s             |
 | 20s | 10    | 0       | 0       | -           | 2s             |

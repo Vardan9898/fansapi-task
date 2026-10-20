@@ -15,6 +15,7 @@ use Laravel\Scout\Searchable;
     'account_id', 'username',
     'upstream_id', 'name', 'about', 'avatar_url', 'header_url',
     'likes', 'posts_count', 'photos_count', 'videos_count', 'audios_count',
+    'medias_count', 'is_verified', 'subscribe_price', 'join_date', 'upstream_payload',
     'revision',
     'last_success_at', 'last_attempt_at', 'last_outcome', 'last_error', 'consecutive_failures',
 ])]
@@ -30,6 +31,7 @@ class Profile extends Model
     public const DATA_COLUMNS = [
         'upstream_id', 'name', 'about', 'avatar_url', 'header_url',
         'likes', 'posts_count', 'photos_count', 'videos_count', 'audios_count',
+        'medias_count', 'is_verified', 'subscribe_price', 'join_date', 'upstream_payload',
         'revision', 'last_success_at',
     ];
 
@@ -42,6 +44,11 @@ class Profile extends Model
             'photos_count' => 'integer',
             'videos_count' => 'integer',
             'audios_count' => 'integer',
+            'medias_count' => 'integer',
+            'is_verified' => 'boolean',
+            'subscribe_price' => 'decimal:2',
+            'join_date' => 'datetime',
+            'upstream_payload' => 'array',
             'revision' => 'integer',
             'last_success_at' => 'datetime',
             'last_attempt_at' => 'datetime',

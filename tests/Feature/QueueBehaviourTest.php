@@ -78,22 +78,52 @@ class QueueBehaviourTest extends TestCase
         $this->assertFalse($job->job->hasFailed());
     }
 
-    public function test_consecutive_rate_limits_grow_the_cooldown_exponentially(): void
+    public function test_failed_probe_rounds_grow_the_cooldown_exponentially(): void
     {
         $throttle = app(AccountThrottle::class);
         $account = Account::factory()->create();
+        $round = function () use ($throttle, $account) {
+            Redis::del("refresh:account:{$account->id}:cooldown"); // previous cooldown over: the next 429 is a new probe round
 
-        $first = $throttle->rateLimited($account, null);
-        $throttle->reset($account);
-        $throttle->rateLimited($account, null); // streak 1
-        $second = $throttle->rateLimited($account, null); // streak 2: ceiling 10s
-        $third = $throttle->rateLimited($account, null); // streak 3: ceiling 20s
+            return $throttle->rateLimited($account, null);
+        };
 
+        $first = $round();  // ceiling 5s
+        $second = $round(); // ceiling 10s
+        $third = $round();  // ceiling 20s
+
+        $this->assertGreaterThanOrEqual(3, $first);
         $this->assertLessThanOrEqual(5, $first);
         $this->assertGreaterThanOrEqual(5, $second);
         $this->assertLessThanOrEqual(10, $second);
         $this->assertGreaterThanOrEqual(10, $third);
         $this->assertLessThanOrEqual(20, $third);
+    }
+
+    public function test_concurrent_429s_of_one_wave_escalate_only_once(): void
+    {
+        $throttle = app(AccountThrottle::class);
+        $account = Account::factory()->create();
+
+        $first = $throttle->rateLimited($account, null);  // worker A starts the cooldown
+        $second = $throttle->rateLimited($account, null); // worker B, same wave, a moment later
+        $third = $throttle->rateLimited($account, null);  // worker C
+
+        $this->assertLessThanOrEqual(5, $first);
+        $this->assertLessThanOrEqual($first, $second);
+        $this->assertLessThanOrEqual($first, $third);
+        $this->assertSame('1', (string) Redis::get("refresh:account:{$account->id}:429_streak"));
+    }
+
+    public function test_a_longer_retry_after_extends_a_running_cooldown(): void
+    {
+        $throttle = app(AccountThrottle::class);
+        $account = Account::factory()->create();
+
+        $throttle->rateLimited($account, null);       // 3-5s
+        $now = $throttle->rateLimited($account, '40'); // upstream says 40s
+
+        $this->assertGreaterThanOrEqual(39, $now);
     }
 
     public function test_retry_after_header_is_honoured_when_present(): void
@@ -133,17 +163,13 @@ class QueueBehaviourTest extends TestCase
     public function test_success_ends_the_rate_limit_streak(): void
     {
         $profile = $this->profile();
-        $throttle = app(AccountThrottle::class);
-        $throttle->rateLimited($profile->account, null);
-        $throttle->rateLimited($profile->account, null);
-        $throttle->reset($profile->account); // cooldown over, streak would remain...
-        $throttle->rateLimited($profile->account, '1');
-        sleep(1); // ...let the 1s cooldown expire
+        app(AccountThrottle::class)->rateLimited($profile->account, '1');
+        sleep(1); // let the 1s cooldown expire
         $this->upstream->push('agency-a', 'madison420ivy', ['type' => 'new_format', 'likes' => 121000, 'revision' => 11]);
 
         $this->work($profile);
 
-        $this->assertLessThanOrEqual(5, $throttle->rateLimited($profile->account, null)); // back to streak 1
+        $this->assertSame(0, (int) Redis::exists("refresh:account:{$profile->account_id}:429_streak"));
     }
 
     // --- concurrency slots -------------------------------------------------------------------------
@@ -183,6 +209,25 @@ class QueueBehaviourTest extends TestCase
 
         $this->assertFalse($job->job->isReleased());
         $this->assertSame(121000, $other->refresh()->likes);
+    }
+
+    public function test_waits_briefly_for_a_slot_then_gives_up(): void
+    {
+        config(['refresh.account_concurrency' => 1, 'refresh.slot_wait_ms' => 300]);
+        $account = Account::factory()->create();
+        $throttle = app(AccountThrottle::class);
+        $result = null;
+        $waited = 0.0;
+
+        $throttle->withSlot($account, function () use ($throttle, $account, &$result, &$waited) {
+            $start = microtime(true);
+            $result = $throttle->withSlot($account, fn () => null); // the only slot is taken
+            $waited = microtime(true) - $start;
+        });
+
+        $this->assertFalse($result);
+        $this->assertGreaterThanOrEqual(0.3, $waited);
+        $this->assertLessThan(1.0, $waited); // bounded: never holds a worker for long
     }
 
     public function test_slot_is_released_even_when_the_job_throws(): void

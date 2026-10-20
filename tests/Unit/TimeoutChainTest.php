@@ -24,6 +24,13 @@ class TimeoutChainTest extends TestCase
         $this->assertLessThan($retryAfter, $worker, 'worker timeout must be below retry_after');
     }
 
+    public function test_slot_wait_plus_http_fits_in_the_job_timeout(): void
+    {
+        $worstCase = config('refresh.slot_wait_ms') / 1000 + config('upstream.connect_timeout') + config('upstream.timeout');
+
+        $this->assertLessThan(RefreshProfile::TIMEOUT, $worstCase);
+    }
+
     public function test_locks_outlive_the_job(): void
     {
         $this->assertGreaterThanOrEqual(RefreshProfile::TIMEOUT, config('refresh.slot_ttl_seconds'), 'a dead worker frees its account slot only after the job could have finished');

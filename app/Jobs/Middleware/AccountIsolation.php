@@ -11,7 +11,7 @@ use Closure;
  * Keeps one account from consuming all workers. Runs before any upstream call:
  *  1. blocked account -> drop the job (nothing can succeed until someone moves the profile)
  *  2. account cooling down after a 429 -> re-queue for when the cooldown ends, no upstream call
- *  3. account already using all its concurrency slots -> re-queue in a few seconds
+ *  3. account already using all its concurrency slots -> wait up to slot_wait_ms, then re-queue in 1-2s
  * Re-queued jobs wait in Redis' delayed set, so they hold no worker while waiting.
  */
 class AccountIsolation
@@ -44,7 +44,7 @@ class AccountIsolation
             }
 
             if (! $this->throttle->withSlot($account, fn () => $next($job))) {
-                $job->deferFor(random_int(1, 3), 'account_busy');
+                $job->deferFor(random_int(1, 2), 'account_busy');
             }
         }, $job->job?->uuid(), $job->attempts());
     }
