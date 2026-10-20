@@ -2,8 +2,11 @@
 
 namespace Tests;
 
+use App\Logging\RefreshLog;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Log;
 use Monolog\Handler\NullHandler;
+use Monolog\Handler\TestHandler;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -12,10 +15,21 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         // Keep test runs out of the real refresh log shown in /log-viewer.
-        // Tests that assert on logging use Log::spy() / Log::shouldReceive() instead.
-        config(['logging.channels.refresh' => [
-            'driver' => 'monolog',
-            'handler' => NullHandler::class,
-        ]]);
+        // Only the handler is swapped; the channel keeps its redaction tap.
+        config([
+            'logging.channels.refresh.driver' => 'monolog',
+            'logging.channels.refresh.handler' => NullHandler::class,
+        ]);
+    }
+
+    /**
+     * Route the real `refresh` channel (taps included) into an in-memory handler to assert on.
+     */
+    protected function captureRefreshLog(): TestHandler
+    {
+        config(['logging.channels.refresh.handler' => TestHandler::class]);
+        Log::forgetChannel(RefreshLog::CHANNEL);
+
+        return Log::channel(RefreshLog::CHANNEL)->getLogger()->getHandlers()[0];
     }
 }

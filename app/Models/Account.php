@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AccountStatus;
+use App\Logging\RefreshLog;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -10,7 +11,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Log;
 
 #[Fillable(['name', 'status', 'blocked_at', 'blocked_reason'])]
 class Account extends Model
@@ -43,7 +43,7 @@ class Account extends Model
             'blocked_reason' => $reason,
         ]);
 
-        Log::channel('refresh')->warning('account.blocked', [
+        RefreshLog::warning('account.blocked', [
             'account_id' => $this->id,
             'reason' => $reason,
         ]);
@@ -57,7 +57,7 @@ class Account extends Model
             'blocked_reason' => null,
         ]);
 
-        Log::channel('refresh')->info('account.unblocked', ['account_id' => $this->id]);
+        RefreshLog::info('account.unblocked', ['account_id' => $this->id]);
     }
 
     #[Scope]

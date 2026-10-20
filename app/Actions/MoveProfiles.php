@@ -2,11 +2,11 @@
 
 namespace App\Actions;
 
+use App\Logging\RefreshLog;
 use App\Models\Account;
 use App\Models\Profile;
 use App\Models\RefreshAttempt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 /**
@@ -47,7 +47,7 @@ class MoveProfiles
                         $profile->update(['account_id' => $to->id]);
                         $result['moved']++;
 
-                        Log::channel('refresh')->info('profile.moved', [
+                        RefreshLog::info('profile.moved', [
                             'profile_id' => $profile->id,
                             'username' => $profile->username,
                             'from_account_id' => $from->id,
@@ -82,7 +82,7 @@ class MoveProfiles
 
         $source->delete();
 
-        Log::channel('refresh')->info('profile.merged', [
+        RefreshLog::info('profile.merged', [
             'username' => $target->username,
             'source_profile_id' => $source->id,
             'target_profile_id' => $target->id,

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\RefreshOutcome;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -19,7 +21,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class RefreshAttempt extends Model
 {
+    use MassPrunable;
+
     public const UPDATED_AT = null;
+
+    /**
+     * Rows older than the retention window (same as refresh log files). Deleted by the
+     * scheduled `model:prune` in chunked DELETE queries, without loading models into memory.
+     */
+    public function prunable(): Builder
+    {
+        return static::where('created_at', '<', now()->subDays(config('refresh.retention_days')));
+    }
 
     protected function casts(): array
     {

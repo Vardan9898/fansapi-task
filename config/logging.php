@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\RedactSecretsTap;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -50,6 +51,18 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Log Viewer Access
+    |--------------------------------------------------------------------------
+    |
+    | /log-viewer is open in the local environment only. Elsewhere, only these
+    | signed-in users may open it (comma-separated emails).
+    |
+    */
+
+    'viewer_emails' => array_filter(explode(',', (string) env('LOG_VIEWER_EMAILS', ''))),
+
     'channels' => [
 
         'stack' => [
@@ -63,6 +76,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            'tap' => [RedactSecretsTap::class],
         ],
 
         'daily' => [
@@ -71,16 +85,19 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'tap' => [RedactSecretsTap::class],
         ],
 
         // Every profile fetch attempt: request, response summary, outcome, retry decision.
         // Rotated daily; files older than LOG_REFRESH_DAYS are deleted by Monolog.
+        // LOG_REFRESH_DAYS also drives refresh_attempts pruning (config/refresh.php).
         'refresh' => [
             'driver' => 'daily',
             'path' => storage_path('logs/refresh.log'),
             'level' => env('LOG_REFRESH_LEVEL', 'debug'),
             'max_files' => env('LOG_REFRESH_DAYS', 7),
             'replace_placeholders' => true,
+            'tap' => [RedactSecretsTap::class],
         ],
 
         'monthly' => [

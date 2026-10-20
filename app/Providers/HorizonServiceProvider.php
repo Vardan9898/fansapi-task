@@ -27,10 +27,7 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      */
     protected function gate(): void
     {
-        Gate::define('viewHorizon', function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ]);
-        });
+        // Horizon is always open in local; elsewhere same allowlist as /log-viewer (payloads carry log context)
+        Gate::define('viewHorizon', fn ($user = null) => in_array($user?->email, config('logging.viewer_emails'), true));
     }
 }
