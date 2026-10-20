@@ -1,0 +1,9 @@
+1. Dispatched RefreshProfile for profile #37 (stored: 120000 / r10). Upstream answers 121000 / r11.
+2. Worker #1 ran the job and was killed by signal 9 (SIGKILL) right after the DB commit, before acknowledging the job.
+   After the crash: stored 121000 / r11, attempt rows 1, queue ready 0, reserved 1
+3. The job is still reserved (never acknowledged). Redis redelivers it when the reservation expires (retry_after): waiting 31s ...
+4. Worker #2 picked up the redelivered job and ran it.
+   After the replay: stored 121000 / r11, attempt rows 2, queue ready 0, reserved 0
+   row 422: job e27f053d-b5ec-4526-94ea-39bb8e68b983 attempt #1 updated changes={"likes":[120000,121000],"revision":[10,11]}
+   row 423: job e27f053d-b5ec-4526-94ea-39bb8e68b983 attempt #2 duplicate changes=null
+RESULT: OK. Same job delivered twice; the data was applied once and the replay was recorded as a duplicate.

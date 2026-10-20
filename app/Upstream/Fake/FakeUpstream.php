@@ -70,6 +70,28 @@ class FakeUpstream
     }
 
     /**
+     * Every response for this account takes at least $ms (a slow, overloaded upstream). 0 clears.
+     */
+    public function latency(string $account, int $ms): void
+    {
+        $key = $this->key($account, '*', 'latency_ms');
+
+        if ($ms <= 0) {
+            Redis::del($key);
+
+            return;
+        }
+
+        Redis::set($key, $ms);
+        $this->remember($key);
+    }
+
+    public function latencyMs(string $account): int
+    {
+        return (int) Redis::get($this->key($account, '*', 'latency_ms'));
+    }
+
+    /**
      * Decide the response for one request (consumes one scripted step if any).
      *
      * @return array{type: string, likes?: int, revision?: int, source: string}

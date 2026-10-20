@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\RefreshOutcome;
 use App\Jobs\Middleware\AccountIsolation;
+use App\Jobs\Middleware\SkipIfProfileBeingRefreshed;
 use App\Jobs\RefreshProfile;
 use App\Models\Account;
 use App\Models\Profile;
@@ -15,6 +16,7 @@ use Illuminate\Pipeline\Pipeline;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 /**
@@ -296,6 +298,7 @@ class QueueBehaviourTest extends TestCase
     public function test_second_job_for_a_profile_already_being_refreshed_is_dropped(): void
     {
         $profile = $this->profile();
+        $log = $this->captureRefreshLog();
         $lock = Cache::lock((new WithoutOverlapping("profile:{$profile->id}"))->getLockKey(new RefreshProfile($profile->id)), 30);
         $lock->get(); // another worker is running this profile
 
@@ -305,6 +308,8 @@ class QueueBehaviourTest extends TestCase
         Http::assertNothingSent();
         $this->assertFalse($job->job->isReleased());
         $this->assertFalse($job->job->hasFailed());
+        $this->assertTrue($log->hasInfoThatContains('refresh.skipped_overlapping'));
+        $this->assertSame('1', (string) Redis::get("refresh:stats:account:{$profile->account_id}:skipped_overlapping"));
         $this->assertSame(0, $profile->refreshAttempts()->count());
         $lock->release();
     }
@@ -316,7 +321,7 @@ class QueueBehaviourTest extends TestCase
 
         config(['refresh.handler' => 'fixed']);
         $classes = array_map(fn ($middleware) => $middleware::class, (new RefreshProfile(1))->middleware());
-        $this->assertSame([WithoutOverlapping::class, AccountIsolation::class], $classes);
+        $this->assertSame([SkipIfProfileBeingRefreshed::class, AccountIsolation::class], $classes);
     }
 
     public function test_job_goes_to_the_refresh_queue_after_commit_with_a_retry_window(): void

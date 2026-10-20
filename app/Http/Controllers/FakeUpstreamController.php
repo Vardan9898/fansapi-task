@@ -19,6 +19,10 @@ class FakeUpstreamController
 
         RefreshLog::debug('fake_upstream.served', ['fake_account' => $account, 'fake_username' => $username, ...$step]);
 
+        if ($latency = $fake->latencyMs($account)) {
+            usleep($latency * 1000);
+        }
+
         if ($step['type'] === 'timeout') {
             sleep(config('upstream.fake.timeout_sleep'));
         }

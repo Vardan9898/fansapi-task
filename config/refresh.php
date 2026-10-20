@@ -66,4 +66,7 @@ return [
 
     'retry_window_minutes' => (int) env('REFRESH_RETRY_WINDOW', 30),
 
+    // Chaos testing only (workload:crash-replay): SIGKILL the worker right after a successful DB write
+    'chaos_kill_after_write' => (bool) env('REFRESH_CHAOS_KILL_AFTER_WRITE', false),
+
 ];

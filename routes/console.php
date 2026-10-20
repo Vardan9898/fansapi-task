@@ -74,3 +74,8 @@ Artisan::command('fake-upstream:reset', function (FakeUpstream $fake) {
     $fake->reset();
     $this->info('Fake upstream scenarios cleared');
 })->purpose('Clear all fake upstream scenarios');
+
+Artisan::command('fake-upstream:latency {account} {ms}', function (FakeUpstream $fake) {
+    $fake->latency($this->argument('account'), (int) $this->argument('ms'));
+    $this->info("Account {$this->argument('account')} responses take {$this->argument('ms')}ms");
+})->purpose('Make every fake upstream response for an account slow (0 clears)');

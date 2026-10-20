@@ -93,11 +93,16 @@ class AccountThrottle
     }
 
     /**
-     * Forget cooldown and 429 streak (demo/reproduction resets; not used on the hot path).
+     * Forget cooldown, 429 streak and concurrency slots (demo/reproduction resets; never on the hot path).
      */
     public function reset(Account $account): void
     {
-        Redis::del($this->key($account, 'cooldown'), $this->key($account, '429_streak'));
+        $slots = array_map(
+            fn ($i) => $this->key($account, 'slots').$i, // Laravel's funnel stores slot N under "{name}N"
+            range(1, max(1, config('refresh.account_concurrency'))),
+        );
+
+        Redis::del($this->key($account, 'cooldown'), $this->key($account, '429_streak'), ...$slots);
     }
 
     /**

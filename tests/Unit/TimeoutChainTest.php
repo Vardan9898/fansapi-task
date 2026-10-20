@@ -29,6 +29,15 @@ class TimeoutChainTest extends TestCase
         $this->assertGreaterThanOrEqual(RefreshProfile::TIMEOUT, config('refresh.slot_ttl_seconds'), 'a dead worker frees its account slot only after the job could have finished');
     }
 
+    public function test_overlap_lock_covers_a_running_job_but_is_gone_before_redelivery(): void
+    {
+        $worker = config('horizon.defaults.supervisor-refresh.timeout');
+        $retryAfter = config('queue.connections.redis.retry_after');
+
+        $this->assertGreaterThanOrEqual($worker, RefreshProfile::OVERLAP_LOCK_SECONDS, 'lock must cover the longest possible run');
+        $this->assertLessThan($retryAfter, RefreshProfile::OVERLAP_LOCK_SECONDS, 'a crashed job redelivered after retry_after must not find the dead worker\'s lock and be dropped');
+    }
+
     public function test_fake_timeout_scenario_really_exceeds_the_client_timeout(): void
     {
         $this->assertGreaterThan(config('upstream.timeout'), config('upstream.fake.timeout_sleep'));

@@ -64,51 +64,52 @@ class FixedRefreshHandler implements RefreshHandler
             ]);
         }
 
-        [$outcome, $profile, $before] = $this->write($profile, $parsed);
+        // Data and its attempt row commit together: a crash can never leave a change without its history
+        return DB::transaction(function () use ($profile, $parsed, $context, $response) {
+            [$outcome, $profile, $before] = $this->write($profile, $parsed);
 
-        return $this->record($profile, $outcome, $context, $response, [
-            'response_format' => $parsed->format,
-            'revision_before' => $before['revision'],
-            'revision_received' => $parsed->revision,
-            'changes' => $outcome === RefreshOutcome::Updated ? AttemptRecorder::changes($before, $profile) : [],
-        ]);
+            return $this->record($profile, $outcome, $context, $response, [
+                'response_format' => $parsed->format,
+                'revision_before' => $before['revision'],
+                'revision_received' => $parsed->revision,
+                'changes' => $outcome === RefreshOutcome::Updated ? AttemptRecorder::changes($before, $profile) : [],
+            ]);
+        });
     }
 
     /**
-     * Compare-and-write under a row lock (the HTTP call already happened, so the lock is held
-     * for a few milliseconds). Two workers holding responses for the same profile serialize
-     * here, and only a strictly newer revision is written.
+     * Compare-and-write under a row lock (caller holds the transaction; the HTTP call already
+     * happened, so the lock is held for a few milliseconds). Two workers holding responses for
+     * the same profile serialize here, and only a strictly newer revision is written.
      *
      * @return array{0: RefreshOutcome, 1: Profile, 2: array} [outcome, profile as stored now, data before]
      */
     private function write(Profile $profile, ParsedProfile $parsed): array
     {
-        return DB::transaction(function () use ($profile, $parsed) {
-            $current = Profile::with('account')->lockForUpdate()->findOrFail($profile->id);
-            $before = $current->only(Profile::DATA_COLUMNS);
+        $current = Profile::with('account')->lockForUpdate()->findOrFail($profile->id);
+        $before = $current->only(Profile::DATA_COLUMNS);
 
-            if ($current->revision !== null && $parsed->revision < $current->revision) {
-                return [RefreshOutcome::Stale, $current, $before];
+        if ($current->revision !== null && $parsed->revision < $current->revision) {
+            return [RefreshOutcome::Stale, $current, $before];
+        }
+
+        if ($current->revision === $parsed->revision) {
+            if ($current->likes !== $parsed->likes) {
+                // Contract says one revision = one version of the data; keep what we have, flag it
+                RefreshLog::warning('refresh.revision_conflict', [
+                    'revision' => $parsed->revision,
+                    'stored_likes' => $current->likes,
+                    'received_likes' => $parsed->likes,
+                ]);
             }
 
-            if ($current->revision === $parsed->revision) {
-                if ($current->likes !== $parsed->likes) {
-                    // Contract says one revision = one version of the data; keep what we have, flag it
-                    RefreshLog::warning('refresh.revision_conflict', [
-                        'revision' => $parsed->revision,
-                        'stored_likes' => $current->likes,
-                        'received_likes' => $parsed->likes,
-                    ]);
-                }
+            return [RefreshOutcome::Duplicate, $current, $before];
+        }
 
-                return [RefreshOutcome::Duplicate, $current, $before];
-            }
+        $current->update($parsed->attributes());
+        $this->warnOnSuspiciousDrop($before['likes'], $parsed->likes);
 
-            $current->update($parsed->attributes());
-            $this->warnOnSuspiciousDrop($before['likes'], $parsed->likes);
-
-            return [RefreshOutcome::Updated, $current, $before];
-        });
+        return [RefreshOutcome::Updated, $current, $before];
     }
 
     private function classifyFailure(UpstreamResponse $response): RefreshOutcome

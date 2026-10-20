@@ -36,21 +36,26 @@ HTTP connect 2s + request 5s  <  job $timeout 15s  <  Horizon worker timeout 20s
 - **Worker timeout < `retry_after`**: Redis only hands a reserved job to another worker after `retry_after`.
   Because the worker always dies first, a job that is **still running is never given to a second worker**.
   If `retry_after` were shorter than a long job, two workers would process the same attempt.
-- **Locks outlive the job**: the account slot (`slot_ttl_seconds` 30) and the per-profile overlap lock (30s)
-  expire on their own if a worker dies while holding them.
+- **Locks expire on their own** if a worker dies while holding them: the account slot (`slot_ttl_seconds` 30) and the
+  per-profile overlap lock (`OVERLAP_LOCK_SECONDS` 25). The overlap lock must be **>= the worker timeout** (it covers
+  any run that can still be alive) and **< `retry_after`** (when Redis redelivers a crashed job, the dead worker's
+  lock is already gone, otherwise the redelivered job would be dropped as "already refreshing").
 
 `TimeoutChainTest` fails if anyone breaks this order in config.
 
 ## Avoiding two workers on the same attempt or profile
 
 1. **The timeout chain above**: no redelivery while the job is still running.
-2. **`WithoutOverlapping("profile:{id}")->dontRelease()`**: a second job for a profile that is being refreshed
-   right now is dropped (the running one fetches fresh data). The lock expires after 30s if its worker died.
+2. **`SkipIfProfileBeingRefreshed`** (Laravel's `WithoutOverlapping` + `dontRelease`, but logged as
+   `refresh.skipped_overlapping` and counted per account): a second job for a profile that is being refreshed right now
+   is dropped (the running one fetches fresh data). The lock expires after 25s if its worker died.
 3. **The data layer is idempotent anyway**: the write is a compare-and-set on `revision` under a row lock,
    so a replayed or duplicate job records `duplicate` / `stale` and changes nothing.
 
 Layers 1 and 2 save upstream calls; layer 3 is what guarantees correct data if 1 or 2 ever fail
-(e.g. a worker dies after the DB write but before acknowledging the job: see the replay in T-008).
+(e.g. a worker dies after the DB write but before acknowledging the job: `php artisan workload:crash-replay`,
+evidence in [`evidence/T-008-workload-summary.md`](evidence/T-008-workload-summary.md)). The data write and its attempt row commit in one
+transaction, so a crash can't leave a change without its history.
 
 ## Legacy mode
 

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\RefreshOutcome;
 use App\Jobs\Middleware\AccountIsolation;
+use App\Jobs\Middleware\SkipIfProfileBeingRefreshed;
 use App\Logging\RefreshLog;
 use App\Models\Profile;
 use App\Models\RefreshAttempt;
@@ -14,7 +15,6 @@ use App\Refresh\RefreshHandler;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
  * Refreshes one profile. Carries only the id (no models, no config reads in the constructor);
@@ -30,6 +30,9 @@ class RefreshProfile implements ShouldQueue
     use Queueable;
 
     public const TIMEOUT = 15;
+
+    /** Per-profile overlap lock: >= worker timeout (covers a running job), < retry_after (gone before a crashed job is redelivered). */
+    public const OVERLAP_LOCK_SECONDS = 25;
 
     public $timeout = self::TIMEOUT;
 
@@ -61,9 +64,9 @@ class RefreshProfile implements ShouldQueue
         }
 
         return [
-            // A second job for the same profile while one runs is dropped: the running one fetches fresh data.
-            // The lock outlives the job timeout, so a killed worker can't leave it stuck forever.
-            (new WithoutOverlapping("profile:{$this->profileId}"))->expireAfter(self::TIMEOUT * 2)->dontRelease(),
+            // A second job for the same profile while one runs is dropped (logged + counted): the running one
+            // fetches fresh data. The lock expires on its own, so a killed worker can't leave it stuck.
+            new SkipIfProfileBeingRefreshed($this->profileId, $this->profile()?->account_id ?? 0, self::OVERLAP_LOCK_SECONDS),
             app(AccountIsolation::class),
         ];
     }
@@ -92,8 +95,22 @@ class RefreshProfile implements ShouldQueue
 
             RefreshLog::info('refresh.finished', ['handler' => $handler->name(), 'outcome' => $outcome->value]);
 
+            $this->simulateCrashAfterWrite($outcome);
+
             $this->afterOutcome($outcome, $profile, $throttle);
         }, $context->jobUuid, $context->attempt);
+    }
+
+    /**
+     * Chaos hook for workload:crash-replay: die like a SIGKILLed worker right after the DB commit,
+     * before the job is acknowledged. Never active in production.
+     */
+    private function simulateCrashAfterWrite(RefreshOutcome $outcome): void
+    {
+        if (config('refresh.chaos_kill_after_write') && $outcome->isSuccessful() && ! app()->isProduction()) {
+            RefreshLog::warning('chaos.killing_worker_after_write', ['pid' => getmypid()]);
+            posix_kill(getmypid(), SIGKILL);
+        }
     }
 
     /**
