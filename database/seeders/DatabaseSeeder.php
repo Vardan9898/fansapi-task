@@ -2,7 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Enums\RefreshOutcome;
+use App\Models\Account;
+use App\Models\Profile;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -11,15 +13,21 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Starting state from the brief: last valid refresh stored likes=120000 at revision 10.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $account = Account::firstOrCreate(['name' => 'default']);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        Profile::updateOrCreate(
+            ['account_id' => $account->id, 'username' => 'madison420ivy'],
+            [
+                'likes' => 120000,
+                'revision' => 10,
+                'last_success_at' => now(),
+                'last_attempt_at' => now(),
+                'last_outcome' => RefreshOutcome::Updated,
+            ],
+        );
     }
 }
