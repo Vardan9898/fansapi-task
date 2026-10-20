@@ -37,6 +37,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewLogViewer', fn (?User $user = null) => $this->app->isLocal()
             || in_array($user?->email, config('logging.viewer_emails'), true));
 
+        // Dashboard + its actions (refresh, block, move): same people as the log viewer
+        Gate::define('operate', fn (?User $user = null) => $this->app->isLocal()
+            || in_array($user?->email, config('logging.viewer_emails'), true));
+
         Event::listen(fn (ModelsPruned $event) => RefreshLog::info('retention.pruned', [
             'model' => $event->model,
             'count' => $event->count,

@@ -51,6 +51,20 @@ class Profile extends Model
     }
 
     /**
+     * Dashboard badge: never (no valid data yet), failing (last attempts failed, showing older data),
+     * stale (no successful refresh within refresh.stale_after_minutes) or fresh.
+     */
+    public function freshness(): string
+    {
+        return match (true) {
+            $this->last_success_at === null => 'never',
+            $this->consecutive_failures > 0 => 'failing',
+            $this->last_success_at->lt(now()->subMinutes(config('refresh.stale_after_minutes'))) => 'stale',
+            default => 'fresh',
+        };
+    }
+
+    /**
      * Columns the Scout database engine searches with LIKE.
      */
     public function toSearchableArray(): array

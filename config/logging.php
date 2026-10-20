@@ -56,8 +56,8 @@ return [
     | Log Viewer Access
     |--------------------------------------------------------------------------
     |
-    | /log-viewer is open in the local environment only. Elsewhere, only these
-    | signed-in users may open it (comma-separated emails).
+    | /log-viewer, /horizon and the dashboard are open in the local environment
+    | only. Elsewhere, only these signed-in users may use them (comma-separated).
     |
     */
 

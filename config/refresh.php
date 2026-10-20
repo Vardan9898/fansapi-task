@@ -31,6 +31,9 @@ return [
     // A valid newer response that drops likes by more than this share is stored but logged as suspicious
     'suspicious_drop_ratio' => (float) env('REFRESH_SUSPICIOUS_DROP_RATIO', 0.5),
 
+    // Dashboard: a profile whose last successful refresh is older than this is shown as stale
+    'stale_after_minutes' => (int) env('REFRESH_STALE_AFTER_MINUTES', 60),
+
     /*
     |--------------------------------------------------------------------------
     | Queue behaviour (fixed handler)
