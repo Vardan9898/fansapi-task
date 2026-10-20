@@ -31,6 +31,11 @@ final readonly class UpstreamResponse
         return is_array($data) ? $data : null;
     }
 
+    public function isSuccessful(): bool
+    {
+        return $this->status >= 200 && $this->status < 300;
+    }
+
     public function bodyBytes(): int
     {
         return strlen($this->body);

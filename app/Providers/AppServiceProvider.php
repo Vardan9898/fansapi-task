@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Logging\RefreshLog;
 use App\Models\User;
+use App\Refresh\FixedRefreshHandler;
 use App\Refresh\LegacyRefreshHandler;
 use App\Refresh\RefreshHandler;
 use Illuminate\Database\Events\ModelsPruned;
@@ -21,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Resolved per job run, so the handler can be switched via config without restarting code paths
         $this->app->bind(RefreshHandler::class, fn ($app) => match (config('refresh.handler')) {
+            'fixed' => $app->make(FixedRefreshHandler::class),
             'legacy' => $app->make(LegacyRefreshHandler::class),
             default => throw new InvalidArgumentException('Unknown refresh handler ['.config('refresh.handler').']'),
         });

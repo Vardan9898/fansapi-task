@@ -1,0 +1,13 @@
+Profile Refresh (Tests\Feature\ProfileRefresh)
+ [x] New format response updates likes from profile object
+ [x] Old format response is still accepted
+ [x] Response without likes is rejected and stored value kept
+ [x] Rate limited response keeps stored data and is not a success
+ [x] Server error with empty body keeps stored data
+ [x] Timeout is recorded and keeps stored data
+ [x] Duplicate execution does not apply the same revision twice
+ [x] Older response arriving last does not overwrite newer data
+
+
+Result: passed - 8 tests, 8 passed (same test file that was red in T-004)
+Handler: fixed (REFRESH_HANDLER=fixed)

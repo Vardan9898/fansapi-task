@@ -27,6 +27,7 @@
         <env name="DB_DATABASE" value="fansapi_test"/>
         <env name="DB_URL" value=""/>
         <env name="REDIS_DB" value="15"/>
+        <env name="REFRESH_HANDLER" value="fixed"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

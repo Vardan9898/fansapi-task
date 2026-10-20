@@ -7,7 +7,7 @@ use App\Models\Profile;
 
 /**
  * One refresh attempt for one profile: fetch from upstream, decide, write, record.
- * Implementations: LegacyRefreshHandler (the production bug), selected by config('refresh.handler').
+ * Implementations: FixedRefreshHandler and LegacyRefreshHandler (the production bug), selected by config('refresh.handler').
  */
 interface RefreshHandler
 {

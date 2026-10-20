@@ -52,6 +52,15 @@ class RefreshCommandsTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_incident_reproduce_shows_every_case_correct_on_the_fixed_handler(): void
+    {
+        $this->routeUpstreamToFake();
+
+        $this->artisan('incident:reproduce', ['--handler' => 'fixed'])
+            ->expectsOutputToContain('8/8 cases correct')
+            ->assertSuccessful();
+    }
+
     public function test_unknown_handler_name_is_rejected(): void
     {
         config(['refresh.handler' => 'bogus']);

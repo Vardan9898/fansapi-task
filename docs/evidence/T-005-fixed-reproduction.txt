@@ -1,0 +1,14 @@
+Handler: fixed upstream: http://localhost:8000/fake-upstream
++-------------------------------------+--------------+--------------------+----------------------------------+--------+
+| Case (start: 120000 / r10) | Stored after | Recorded | Expected | Result |
++-------------------------------------+--------------+--------------------+----------------------------------+--------+
+| Old format, same data | 120000 / r10 | duplicate | 120000 / r10: duplicate | OK |
+| New format profile.likes=121000 r11 | 121000 / r11 | updated | 121000 / r11: updated | OK |
+| Likes missing everywhere r12 | 120000 / r10 | invalid_payload | 120000 / r10: invalid_payload | OK |
+| 429, empty body, no Retry-After | 120000 / r10 | rate_limited | 120000 / r10: rate_limited | OK |
+| 500, empty body | 120000 / r10 | server_error | 120000 / r10: server_error | OK |
+| Timeout (no response) | 120000 / r10 | timeout | 120000 / r10: timeout | OK |
+| Duplicate: r11 delivered twice | 121000 / r11 | updated, duplicate | 121000 / r11: updated, duplicate | OK |
+| Out of order: r11, then older r10 | 121000 / r11 | updated, stale | 121000 / r11: updated, stale | OK |
++-------------------------------------+--------------+--------------------+----------------------------------+--------+
+8/8 cases correct
