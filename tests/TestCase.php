@@ -10,6 +10,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\TestHandler;
 
@@ -25,6 +26,12 @@ abstract class TestCase extends BaseTestCase
             'logging.channels.refresh.driver' => 'monolog',
             'logging.channels.refresh.handler' => NullHandler::class,
         ]);
+
+        // Cooldowns, slots and fake scenarios must not leak between tests. phpunit.xml points
+        // tests at Redis DB 15; refuse to flush anything else.
+        if ((string) config('database.redis.default.database') === '15') {
+            Redis::flushdb();
+        }
     }
 
     /**

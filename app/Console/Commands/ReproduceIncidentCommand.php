@@ -7,6 +7,7 @@ use App\Enums\UpstreamDriver;
 use App\Jobs\RefreshProfile;
 use App\Models\Account;
 use App\Models\Profile;
+use App\Refresh\AccountThrottle;
 use App\Upstream\Fake\FakeUpstream;
 use Illuminate\Console\Command;
 use Throwable;
@@ -47,7 +48,7 @@ class ReproduceIncidentCommand extends Command
         ], [121000, 11], ['updated', 'stale']],
     ];
 
-    public function handle(FakeUpstream $fake): int
+    public function handle(FakeUpstream $fake, AccountThrottle $throttle): int
     {
         if ($this->option('handler')) {
             config(['refresh.handler' => $this->option('handler')]);
@@ -63,6 +64,7 @@ class ReproduceIncidentCommand extends Command
 
         foreach (self::CASES as [$name, $steps, [$expectLikes, $expectRevision], $expectOutcomes]) {
             $this->resetProfile($profile);
+            $throttle->reset($account); // each case starts without a cooldown left by the previous one
             $lastAttemptId = (int) $profile->refreshAttempts()->max('id');
 
             $fake->reset();

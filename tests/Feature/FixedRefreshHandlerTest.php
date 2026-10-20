@@ -79,12 +79,12 @@ class FixedRefreshHandlerTest extends TestCase
     public function test_failures_count_up_and_reset_on_success(): void
     {
         $profile = $this->refreshWith($this->profile(),
-            ['type' => 'rate_limited'],
             ['type' => 'server_error'],
             ['type' => 'timeout'],
+            ['type' => 'server_error'],
         );
         $this->assertSame(3, $profile->consecutive_failures);
-        $this->assertSame(RefreshOutcome::Timeout, $profile->last_outcome);
+        $this->assertSame(RefreshOutcome::ServerError, $profile->last_outcome);
 
         $profile = $this->refreshWith($profile, ['type' => 'new_format', 'likes' => 121000, 'revision' => 11]);
         $this->assertSame(0, $profile->consecutive_failures);

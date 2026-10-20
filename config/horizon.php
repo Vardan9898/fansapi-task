@@ -98,6 +98,7 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+        'redis:refresh' => 30,
     ],
 
     /*
@@ -197,6 +198,21 @@ return [
     */
 
     'defaults' => [
+        // Profile refreshes. timeout (20s) sits between the job timeout (15s) and the
+        // redis retry_after (30s). memory: worker restarts after a job if it grew past this.
+        'supervisor-refresh' => [
+            'connection' => 'redis',
+            'queue' => ['refresh'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('HORIZON_REFRESH_PROCESSES', 6),
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 1, // RefreshProfile::retryUntil() takes precedence
+            'timeout' => 20,
+            'nice' => 0,
+        ],
+
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -214,6 +230,9 @@ return [
 
     'environments' => [
         'production' => [
+            'supervisor-refresh' => [
+                'maxProcesses' => (int) env('HORIZON_REFRESH_PROCESSES', 20),
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -222,6 +241,7 @@ return [
         ],
 
         'local' => [
+            'supervisor-refresh' => [],
             'supervisor-1' => [
                 'maxProcesses' => 3,
             ],

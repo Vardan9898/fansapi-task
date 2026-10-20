@@ -1,0 +1,33 @@
+# T-006 live smoke test (real Horizon workers, fake upstream over HTTP)
+
+Setup: smoke-a = 6 profiles, fake upstream rate-limits it for 15s (429, empty body, no Retry-After);
+       smoke-b = 3 profiles, healthy. account_concurrency=2, cooldown base 5s, 6 Horizon workers.
+Dispatched 9 jobs at 09:59:21 UTC (profiles:refresh-all).
+
+smoke-a refreshed: 6/6 attempts: {"rate_limited":4,"updated":6} first update: 09:59:52 last update: 09:59:58
+smoke-b refreshed: 3/3 attempts: {"updated":3} first update: 09:59:22 last update: 09:59:25
+
+-> smoke-b unaffected (done 1-4s after dispatch). smoke-a hit upstream only 4 times while limited,
+   the rest waited in the delayed queue (no worker held, no upstream call), all recovered after the limit cleared.
+
+Log trail (refresh channel):
+09:59:22] local.INFO: refresh.deferred {"reason":"rate_limited","delay_seconds":8}
+09:59:25] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":6}
+09:59:25] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":5}
+09:59:25] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":7}
+09:59:25] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":6}
+09:59:31] local.INFO: refresh.deferred {"reason":"account_busy","delay_seconds":1}
+09:59:31] local.INFO: refresh.deferred {"reason":"account_busy","delay_seconds":1}
+09:59:31] local.WARNING: account.cooldown_started {"account_id":3,"seconds":17,"streak":3,"retry_after_header":null}
+09:59:31] local.INFO: refresh.deferred {"reason":"rate_limited","delay_seconds":20}
+09:59:31] local.WARNING: account.cooldown_started {"account_id":3,"seconds":20,"streak":4,"retry_after_header":null}
+09:59:31] local.INFO: refresh.deferred {"reason":"rate_limited","delay_seconds":23}
+09:59:34] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":17}
+09:59:34] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":18}
+09:59:34] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":17}
+09:59:34] local.INFO: refresh.deferred {"reason":"account_cooldown","delay_seconds":19}
+09:59:52] local.INFO: refresh.deferred {"reason":"account_busy","delay_seconds":1}
+09:59:52] local.INFO: refresh.deferred {"reason":"account_busy","delay_seconds":1}
+09:59:52] local.INFO: account.rate_limit_recovered {"account_id":3}
+09:59:55] local.INFO: refresh.deferred {"reason":"account_busy","delay_seconds":2}
+09:59:55] local.INFO: refresh.deferred {"reason":"account_busy","delay_seconds":2}

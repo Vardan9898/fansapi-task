@@ -61,6 +61,34 @@ class RefreshCommandsTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_refresh_all_queues_active_accounts_and_skips_blocked_ones(): void
+    {
+        Queue::fake();
+        $active = Profile::factory()->count(3)->for(Account::factory()->create(['name' => 'agency-a']))->create();
+        Profile::factory()->count(2)->for(Account::factory()->blocked()->create(['name' => 'agency-b']))->create();
+
+        $this->artisan('profiles:refresh-all')
+            ->expectsOutputToContain('Queued 3 refresh job(s). Skipped blocked: agency-b')
+            ->assertSuccessful();
+
+        Queue::assertPushed(RefreshProfile::class, 3);
+        Queue::assertPushedOn('refresh', RefreshProfile::class);
+        foreach ($active as $profile) {
+            Queue::assertPushed(RefreshProfile::class, fn ($job) => $job->profileId === $profile->id);
+        }
+    }
+
+    public function test_refresh_all_can_target_one_account(): void
+    {
+        Queue::fake();
+        Profile::factory()->count(2)->for(Account::factory()->create(['name' => 'agency-a']))->create();
+        Profile::factory()->count(5)->for(Account::factory()->create(['name' => 'agency-b']))->create();
+
+        $this->artisan('profiles:refresh-all', ['--account' => ['agency-a']])->assertSuccessful();
+
+        Queue::assertPushed(RefreshProfile::class, 2);
+    }
+
     public function test_unknown_handler_name_is_rejected(): void
     {
         config(['refresh.handler' => 'bogus']);

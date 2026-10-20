@@ -20,6 +20,7 @@ class FixedRefreshHandler implements RefreshHandler
         private UpstreamClient $client,
         private ProfilePayloadParser $parser,
         private AttemptRecorder $recorder,
+        private AccountThrottle $throttle,
     ) {}
 
     public function name(): string
@@ -36,10 +37,23 @@ class FixedRefreshHandler implements RefreshHandler
         }
 
         if (! $response->isSuccessful()) {
-            return $this->record($profile, $this->classifyFailure($response), $context, $response, [
+            $outcome = $this->classifyFailure($response);
+
+            if ($outcome === RefreshOutcome::RateLimited) {
+                $this->throttle->rateLimited($profile->account, $response->retryAfter);
+            }
+
+            if ($response->status === 401) {
+                // Credentials rejected: every profile of this account would fail the same way
+                $profile->account->block('upstream rejected credentials (HTTP 401)');
+            }
+
+            return $this->record($profile, $outcome, $context, $response, [
                 'error' => "HTTP {$response->status}".($response->body === '' ? ' (empty body)' : ''),
             ]);
         }
+
+        $this->throttle->succeeded($profile->account);
 
         try {
             $parsed = $this->parser->parse($response);
@@ -102,7 +116,7 @@ class FixedRefreshHandler implements RefreshHandler
         return match (true) {
             $response->status === 429 => RefreshOutcome::RateLimited,
             $response->status >= 500 => RefreshOutcome::ServerError,
-            default => RefreshOutcome::Failed, // 404, 401, 403, ...: retrying won't help
+            default => RefreshOutcome::Failed, // 401, 403, 404, ...: retrying won't help
         };
     }
 

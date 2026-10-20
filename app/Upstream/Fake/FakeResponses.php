@@ -17,6 +17,7 @@ class FakeResponses
         'rate_limited', // 429, empty body, no Retry-After
         'server_error', // 500, empty body
         'not_found',    // 404
+        'unauthorized', // 401 (bad credentials: blocks the account)
         'timeout',      // sleeps past the client timeout
         'oversized',    // 200 with a body bigger than upstream.max_body_bytes (memory guard)
     ];
@@ -37,6 +38,7 @@ class FakeResponses
             'rate_limited' => ['status' => 429, 'body' => ''],
             'server_error' => ['status' => 500, 'body' => ''],
             'not_found' => ['status' => 404, 'body' => json_encode(['error' => 'Profile not found'])],
+            'unauthorized' => ['status' => 401, 'body' => json_encode(['error' => 'Unauthenticated'])],
             'timeout' => ['status' => 200, 'body' => '{}'], // only reached after the client gave up
             'oversized' => ['status' => 200, 'body' => json_encode(['likes' => $likes, 'revision' => $revision, 'padding' => str_repeat('x', config('upstream.max_body_bytes') + 1)])],
             default => throw new InvalidArgumentException("Unknown fake response type [{$step['type']}]"),
